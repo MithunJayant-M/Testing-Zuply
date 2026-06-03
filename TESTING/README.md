@@ -4,6 +4,7 @@ REST Assured + TestNG + ExtentReports framework covering all 172 test cases acro
 
 ## Project layout
 
+admin login: admin@zuply.in , Admin@123
 ```
 src/
 ├── main/java/com/cts/mfrp/Zuply/
