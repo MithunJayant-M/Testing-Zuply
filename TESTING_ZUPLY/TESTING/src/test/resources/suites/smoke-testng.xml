@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!--
+  Smoke suite — runs only tests tagged with the "smoke" group.
+  These cover the critical-path flows: auth (API + UI) and home page.
+  Use this for a quick sanity check after a deployment.
+
+  Run with: mvn test -DsuiteXmlFile=src/test/resources/suites/smoke-testng.xml
+-->
+<suite name="Zuply Smoke Suite" verbose="1">
+
+    <listeners>
+        <listener class-name="com.cts.mfrp.zuply.utils.ExtentReportListener"/>
+    </listeners>
+
+    <parameter name="headless" value="false"/>
+    <parameter name="report.subdir" value="smoke"/>
+
+    <!-- Only execute methods that belong to the "smoke" group -->
+    <groups>
+        <run>
+            <include name="smoke"/>
+        </run>
+    </groups>
+
+    <test name="Smoke — API Auth">
+        <classes>
+            <class name="com.cts.mfrp.zuply.tests.api.AuthTests"/>
+        </classes>
+    </test>
+
+<!--    <test name="Smoke — UI Auth">-->
+<!--        <classes>-->
+<!--            <class name="com.cts.mfrp.zuply.tests.ui.auth.AuthUiTests"/>-->
+<!--        </classes>-->
+<!--    </test>-->
+
+    <test name="Smoke — UI Home">
+        <classes>
+            <class name="com.cts.mfrp.zuply.tests.ui.buyer.HomePageUiTests"/>
+        </classes>
+    </test>
+
+</suite>

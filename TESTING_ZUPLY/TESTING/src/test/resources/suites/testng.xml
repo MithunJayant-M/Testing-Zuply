@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Zuply API Suite" verbose="1">
+
+    <listeners>
+        <listener class-name="com.cts.mfrp.zuply.utils.ExtentReportListener"/>
+    </listeners>
+    <parameter name="headless" value="false"/>
+    <test name="Authentication">
+        <classes><class name="com.cts.mfrp.zuply.tests.api.AuthTests"/></classes>
+    </test>
+
+    <test name="Users">
+        <classes><class name="com.cts.mfrp.zuply.tests.api.UserTests"/></classes>
+    </test>
+
+    <test name="Products">
+        <classes><class name="com.cts.mfrp.zuply.tests.api.ProductTests"/></classes>
+    </test>
+
+    <test name="Upload">
+        <classes><class name="com.cts.mfrp.zuply.tests.api.UploadTests"/></classes>
+    </test>
+
+    <test name="AI Listing">
+        <classes><class name="com.cts.mfrp.zuply.tests.api.ListingTests"/></classes>
+    </test>
+
+    <test name="Cart">
+        <classes><class name="com.cts.mfrp.zuply.tests.api.CartTests"/></classes>
+    </test>
+
+    <test name="Orders">
+        <classes><class name="com.cts.mfrp.zuply.tests.api.OrderTests"/></classes>
+    </test>
+
+    <test name="Payment">
+        <classes><class name="com.cts.mfrp.zuply.tests.api.PaymentTests"/></classes>
+    </test>
+
+    <test name="Seller">
+        <classes><class name="com.cts.mfrp.zuply.tests.api.SellerTests"/></classes>
+    </test>
+
+    <test name="Admin">
+        <classes><class name="com.cts.mfrp.zuply.tests.api.AdminTests"/></classes>
+    </test>
+
+</suite>

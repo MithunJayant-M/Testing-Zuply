@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+  Seller-to-Marketplace transaction chain — composed exclusively from EXISTING
+  test methods already in the codebase (no new methods invented).
+
+  Step → existing method mapping
+    1. Seller Registration       → AuthUiTests.validRegistration         (data-provider, runs each row tagged Scenario=VALID/VALID_SELLER)
+    2. Admin Approves Seller     → AdminDashboardUiTests.tc060_approvePendingSellerFromDashboard
+    3. Seller Creates Product    → SellerProductUiTests.tc020_sellerCreateProduct
+    4. Admin Approves Product    → AdminProductUiTests.tc022_adminApproveProduct  (swapped from tc064 — tc022 has the
+                                    refresh-and-retry polling that handles the seller→admin sync delay)
+    5. Buyer Verifies Card View  → ProductSearchUiTests.ps1_anonymousCanBrowseProducts
+
+  Why one <test> tag per step
+    Each existing class's @BeforeClass owns its login (loginAsAdmin /
+    registerNewCustomer / registerNewSeller). One <test> tag per step lets
+    each class be instantiated freshly with its own browser + admin login,
+    which is what these autonomous test methods expect. (Originally this
+    structure was also required to interleave AdminDashboard's tc060 →
+    SellerProduct's tc020 → AdminDashboard's tc064; now that step 4 uses
+    AdminProductUiTests.tc022 instead of a second AdminDashboard method,
+    interleaving is no longer the driving constraint — but the per-step
+    isolation is still desirable.)
+
+  Trade-off you should know
+    Five <test> tags = five @BeforeClass cycles = five separate Chromes and
+    five independent backend sessions. The methods chain LOGICALLY in the
+    declared order, but they do NOT share session state, cookies, or a single
+    seller/product identity across steps. Step 2 approves whatever seller is
+    first in the PENDING_APPROVAL filter at that moment — which is the one
+    step 1 just created ONLY if no other pending sellers are queued on the env.
+
+    If you need the chain to be truly transactional (step 2 approves the
+    exact seller from step 1, step 4 approves the exact product from step 3),
+    see the "State Hand-off Blueprint" below this XML for the minimum-touch
+    additions to wire SellerToMarketplaceContext into the existing methods.
+
+  Sequencing rules
+    parallel="none" + thread-count="1" → strict serial across <test> tags.
+    preserve-order="true" on each <test> → methods inside that step run in
+    declared include-order (matters for AuthUiTests since validRegistration is
+    a data-provider with multiple rows).
+
+  Synchronization
+    All underlying waits use the 25s global DEFAULT_WAIT in UiBaseTest /
+    BasePage. No Thread.sleep anywhere. Excel data is auto-materialized at
+    JVM startup by UiBaseTest's static initializer (UiTestDataAugmenter.run()).
+
+  Default headless mode: visible Chrome (value="false"). Switch to background
+  mode in CI by passing -Dheadless=true at the command line.
+-->
+<suite name="Zuply E2E — Seller to Marketplace (existing methods)"
+       verbose="1"
+       parallel="none"
+       thread-count="1">
+
+    <listeners>
+        <listener class-name="com.cts.mfrp.zuply.utils.ExtentReportListener"/>
+    </listeners>
+
+    <parameter name="headless" value="false"/>
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!-- Step 1 — Seller Registration                                          -->
+    <!--   Existing data-driven method: validRegistration                      -->
+    <!--   Excel: UI_AuthData.xlsx → Registration → rows where Scenario=       -->
+    <!--          VALID or VALID_SELLER                                         -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <test name="Step 1 — Seller Registration" preserve-order="true">
+        <classes>
+            <class name="com.cts.mfrp.zuply.tests.ui.auth.AuthUiTests">
+                <methods>
+                    <include name="validRegistration"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!-- Step 2 — Admin Approves Seller                                        -->
+    <!--   Existing method: tc060_approvePendingSellerFromDashboard            -->
+    <!--   Behaviour: approves the FIRST pending seller in the dashboard       -->
+    <!--   widget. See "Hand-off Blueprint" if you need to target step 1's     -->
+    <!--   exact seller instead of "the first pending one".                    -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <test name="Step 2 — Admin Approves Seller" preserve-order="true">
+        <classes>
+            <class name="com.cts.mfrp.zuply.tests.ui.admin.AdminDashboardUiTests">
+                <methods>
+                    <include name="tc060_approvePendingSellerFromDashboard"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!-- Step 3 — Seller Creates Product                                       -->
+    <!--   Existing method: tc020_sellerCreateProduct                          -->
+    <!--   This method's own @BeforeClass registers a fresh seller             -->
+    <!--   (SellerCreate) and logs in as them — independent of step 1's        -->
+    <!--   seller. See blueprint for sharing identity.                         -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <test name="Step 3 — Seller Creates Product" preserve-order="true">
+        <classes>
+            <class name="com.cts.mfrp.zuply.tests.ui.seller.SellerProductUiTests">
+                <methods>
+                    <include name="tc020_sellerCreateProduct"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!-- Step 4 — Admin Approves Product                                       -->
+    <!--   Existing method: AdminProductUiTests.tc022_adminApproveProduct      -->
+    <!--                                                                       -->
+    <!--   Swapped from the original AdminDashboardUiTests.tc064 because tc022 -->
+    <!--   now contains a refresh-and-retry polling helper in its Step 3       -->
+    <!--   (waitForPendingReviewProducts) — when the seller's upload from      -->
+    <!--   Step 3 of this suite hasn't yet synced to the SPA's dashboard       -->
+    <!--   cache, the helper refreshes the page and re-selects the             -->
+    <!--   PENDING_REVIEW filter every few seconds, up to a 30s window. The    -->
+    <!--   old tc064 path skipped immediately on count=0 and made Step 4       -->
+    <!--   silently no-op whenever the seller→admin sync took >1s.             -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <test name="Step 4 — Admin Approves Product" preserve-order="true">
+        <classes>
+            <class name="com.cts.mfrp.zuply.tests.ui.admin.AdminProductUiTests">
+                <methods>
+                    <include name="tc022_adminApproveProduct"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!-- Step 5 — Buyer Verifies Product Card Visibility                       -->
+    <!--   Existing method: ps1_anonymousCanBrowseProducts                     -->
+    <!--   Verifies an unauthenticated visitor can reach /products and the     -->
+    <!--   page renders (FRD §2.3). Tightest fit in the buyer suite for       -->
+    <!--   "buyer sees public product cards".                                  -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <test name="Step 5 — Buyer Verifies Card Visibility" preserve-order="true">
+        <classes>
+            <class name="com.cts.mfrp.zuply.tests.ui.buyer.ProductSearchUiTests">
+                <methods>
+                    <include name="ps1_anonymousCanBrowseProducts"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+
+</suite>
